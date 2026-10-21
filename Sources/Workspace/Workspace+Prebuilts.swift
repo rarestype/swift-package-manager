@@ -128,6 +128,23 @@ extension Workspace {
         private let customSwiftCompilerVersion: String?
         let hostPlatform: PrebuiltsPlatform
 
+        /// Where prebuilts come from when `--experimental-prebuilts-download-url` is not given.
+        static let defaultDownloadURL = URL(string: "https://get.rarestype.com/prebuilts")!
+
+        /// The root certificate (DER, base64) that signs the prebuilts at ``defaultDownloadURL``,
+        /// trusted when `--experimental-prebuilts-root-cert` is not given.
+        /// SHA-256 fingerprint: D3:D8:0E:80:55:AC:07:D4:CE:8E:F6:8D:A6:03:3A:FD:0B:89:32:05:8E:39:C0:1B:41:9B:B5:9C:D2:72:E4:14
+        static let defaultRootCertificate = [
+            "MIIBqTCCAU+gAwIBAgIUXR5JINCTgL9dGDgSgIwaZXYqCvAwCgYIKoZIzj0EAwIwMTEPMA0GA1UE",
+            "CgwGUmFyZXN0MR4wHAYDVQQDDBVSYXJlc3QgUHJlYnVpbHRzIFJvb3QwHhcNMjYxMDIxMDUxMDAx",
+            "WhcNNDYxMDIxMDUxMDAxWjAxMQ8wDQYDVQQKDAZSYXJlc3QxHjAcBgNVBAMMFVJhcmVzdCBQcmVi",
+            "dWlsdHMgUm9vdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABHMosV90lnf+oUjWPyPBb8hLXiGn",
+            "lDo6kTYozYC+suzgsUbx6sjlyXUM46xLfadjb98wZWUOoOnjPjndASrsrmKjRTBDMBIGA1UdEwEB",
+            "/wQIMAYBAf8CAQAwDgYDVR0PAQH/BAQDAgEGMB0GA1UdDgQWBBRmKBHG0DvPy/GyPGPKVoyPUJnL",
+            "1TAKBggqhkjOPQQDAgNIADBFAiEAvfkKioVTFwekqDazC0DRzmt7j4VYxz3G5WyNs7DlPlwCIDgU",
+            "ZCUs0pb4arG20SIDm4JfV0qPlvLe7ebzzxhSDlSN",
+        ].joined()
+
         init(
             fileSystem: FileSystem,
             hostPlatform: PrebuiltsPlatform,
@@ -153,7 +170,7 @@ extension Workspace {
             if let prebuiltsDownloadURL, let url = URL(string: prebuiltsDownloadURL) {
                 self.prebuiltsDownloadURL = url
             } else {
-                self.prebuiltsDownloadURL = URL(string: "https://download.swift.org/prebuilts")!
+                self.prebuiltsDownloadURL = Self.defaultDownloadURL
             }
             self.rootCertPath = rootCertPath
 
@@ -263,7 +280,10 @@ extension Workspace {
                             )
                         }.value
                     } else {
-                        let validator = ManifestSigning(observabilityScope: ObservabilitySystem.NOOP)
+                        let validator = ManifestSigning(
+                            additionalTrustedRootCerts: [Self.defaultRootCertificate],
+                            observabilityScope: ObservabilitySystem.NOOP
+                        )
                         try await validator.validate(
                             manifest: signedManifest.manifest,
                             signature: signedManifest.signature,
